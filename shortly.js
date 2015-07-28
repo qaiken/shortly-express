@@ -80,7 +80,7 @@ function(req, res) {
 /************************************************************/
 // Write your authentication routes here
 /************************************************************/
-app.get('/login', function(req, res) {
+app.get('/login', util.checkActiveSession ,function(req, res) {
   res.render('login');
 });
 
@@ -118,7 +118,7 @@ app.post('/login', function(req, res) {
     });
 });
 
-app.get('/signup', function(req, res) {
+app.get('/signup', util.checkActiveSession, function(req, res) {
   res.render('signup');
 });
 
