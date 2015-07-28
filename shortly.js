@@ -3,6 +3,7 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
+var bcrypt = require('bcrypt');
 
 
 var db = require('./app/config');
@@ -88,14 +89,32 @@ app.post('/login', function(req, res) {
   console.log(username, password);
   // receive username and password on req.body
   // check if username exists in db
-    // if yes
-      // hash user-input passwords
-      //compare w/ password in db
-        // if passwords match
-          // start a session
-          // redirect to homepage
-    // if no
-      // send back username / password error message
+  util.checkUserInDB(username)
+    .then(function(isFound) {
+      if(!isFound) {
+        return res.status(400).send("Cannot find username");
+      }
+      // if yes
+      // call util.retrieveHash
+      util.retrieveHash(username)
+        .then(function(hashedPassword) {
+          //compare w/ password in db
+          bcrypt.compare(password, hashedPassword, function(err, isMatch) {
+            if ( err ) {
+              console.log(err);
+              return;
+            }
+            // if passwords match
+            if( isMatch ) {
+             // start new session
+              return util.createSession(req, res);
+            }
+            // if no
+              // send back username / password error message
+            res.status(400).send("Cannot find password. Please, check retype your password and try again.");
+          });
+        });
+    });
 });
 
 app.get('/signup', function(req, res) {
@@ -105,7 +124,6 @@ app.get('/signup', function(req, res) {
 app.post('/signup', function(req, res) {
   var username = req.body.username;
   var password = req.body.password;
-  console.log(username, password);
   // receive username and password on req.body
   // check if username exists in db
   util.checkUserInDB(username)
