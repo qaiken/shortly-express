@@ -5,6 +5,8 @@ var bodyParser = require('body-parser');
 var session = require('express-session');
 var bcrypt = require('bcrypt');
 
+var passport = require('./lib/passport');
+
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -24,26 +26,30 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 3600000 }}));
+app.use(passport.initialize());
+app.use(passport.session());
 
-app.get('/', util.checkAuthentication,
+app.get('/', util.ensureAuthenticated,
+function(req, res) {
+  // req.session?
+  // req.user?
+  console.log(req);
+  res.render('index');
+});
+
+app.get('/create', util.ensureAuthenticated,
 function(req, res) {
   res.render('index');
 });
 
-app.get('/create', util.checkAuthentication,
-function(req, res) {
-  console.log('hey');
-  res.render('index');
-});
-
-app.get('/links', util.checkAuthentication,
+app.get('/links', util.ensureAuthenticated,
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links', util.checkAuthentication,
+app.post('/links', util.ensureAuthenticated,
 function(req, res) {
   var uri = req.body.url;
 
@@ -85,75 +91,29 @@ app.get('/login', util.checkActiveSession ,function(req, res) {
 });
 
 app.post('/login', function(req, res) {
-  var username = req.body.username;
-  var password = req.body.password;
-  console.log(username, password);
-  // receive username and password on req.body
-  // check if username exists in db
-  util.checkUserInDB(username)
-    .then(function(isFound) {
-      if(!isFound) {
-        return res.status(400).send("Cannot find username");
-      }
-      // if yes
-      // call util.retrieveHash
-      util.retrieveHash(username)
-        .then(function(hashedPassword) {
-          //compare w/ password in db
-          bcrypt.compare(password, hashedPassword, function(err, isMatch) {
-            if ( err ) {
-              console.log(err);
-              return;
-            }
-            // if passwords match
-            if( isMatch ) {
-             // start new session
-              return util.createSession(req, res);
-            }
-            // if no
-              // send back username / password error message
-            res.status(400).send("Cannot find password. Please, check retype your password and try again.");
-          });
-        });
-    });
-});
-
-app.get('/signup', util.checkActiveSession, function(req, res) {
-  res.render('signup');
-});
-
-app.post('/signup', function(req, res) {
-  var username = req.body.username;
-  var password = req.body.password;
-  // receive username and password on req.body
-  // check if username exists in db
-  util.checkUserInDB(username)
-    .then(function(isFound) {
-    // if yes
-      if ( isFound ) {
-      // send username already exists error
-        return res.send("Username already exists.");
-      }
-    // if no
-      // add username and hashed password to db
-      util.createNewUser(username, password)
-        .then(function(model) {
-          // call util.createSession
-          util.createSession(req, res);
-        });
-    });
+  res.redirect('/auth/facebook');
 });
 
 app.get('/logout', function(req, res) {
   // terminate the session
-  req.session.destroy(function(err) {
-    if ( err ) {
-      console.log("Error on logout.")
-    }
-    // redirect to login page
-    res.redirect('/login');
-  });
+  req.logout();
+  res.redirect('/login');
 });
+
+// Redirect the user to Facebook for authentication.  When complete,
+// Facebook will redirect the user back to the application at
+//     /auth/facebook/callback
+app.get('/auth/facebook', passport.authenticate('facebook'));
+
+// Facebook will redirect the user to this URL after approval.  Finish the
+// authentication process by attempting to obtain an access token.  If
+// access was granted, the user will be logged in.  Otherwise,
+// authentication has failed.
+app.get('/auth/facebook/callback',
+  passport.authenticate('facebook', { successRedirect: '/',
+                                      failureRedirect: '/login'}));
+
+
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
 // assume the route is a short code and try and handle it here.
