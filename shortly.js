@@ -23,7 +23,7 @@ app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
-app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 60000 }}));
+app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 3600000 }}));
 
 app.get('/', util.checkAuthentication,
 function(req, res) {
@@ -32,6 +32,7 @@ function(req, res) {
 
 app.get('/create', util.checkAuthentication,
 function(req, res) {
+  console.log('hey');
   res.render('index');
 });
 
@@ -143,7 +144,16 @@ app.post('/signup', function(req, res) {
     });
 });
 
-
+app.get('/logout', function(req, res) {
+  // terminate the session
+  req.session.destroy(function(err) {
+    if ( err ) {
+      console.log("Error on logout.")
+    }
+    // redirect to login page
+    res.redirect('/login');
+  });
+});
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
 // assume the route is a short code and try and handle it here.
