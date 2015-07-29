@@ -8,4 +8,4 @@ node_modules
 .floo
 .flooignore
 
-lib/passport.js
+lib/tokens.js
